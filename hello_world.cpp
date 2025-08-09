@@ -4,6 +4,9 @@
 #include <iostream>
 #include <math.h>
 #include <extras/stb_image.h>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 using namespace std;
 
@@ -13,11 +16,11 @@ const unsigned int SCR_HEIGHT = 600;
 
 GLfloat vertices[] = 
 {
-    // positions          // colors           // texture coords
-     0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 1.0f,   // top right
-     0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 0.0f,   // bottom right
-    -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 0.0f,   // bottom left
-    -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 1.0f    // top left 
+    // positions          // texture coords
+     0.5f,  0.5f, 0.0f,   1.0f, 1.0f,   // top right
+     0.5f, -0.5f, 0.0f,   1.0f, 0.0f,   // bottom right
+    -0.5f, -0.5f, 0.0f,   0.0f, 0.0f,   // bottom left
+    -0.5f,  0.5f, 0.0f,   0.0f, 1.0f    // top left 
 };
  
 GLuint indices[] = {  
@@ -96,17 +99,13 @@ int main()
     
     // build and compile our shader program
     // ------------------------------------
-    Shader ourShader("shaders/vertex/texture_vertex.vs", "shaders/fragment/texture_fragment.fs"); // you can name your shader files however you like
+    Shader ourShader("shaders/vertex/transformations_vertex.vs", "shaders/fragment/transformations_fragment.fs"); // you can name your shader files however you like
     
     //Variable declaration VBO, VAO, EBO
     unsigned int VAO, VBO, EBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
-    
-    //Getting id of the arrays
-    glGenVertexArrays(1, &VAO);
-    glGenBuffers(1, &VBO);
 
     // 1 - Bind current VAO
     glBindVertexArray(VAO);
@@ -123,14 +122,11 @@ int main()
 
     // 4 - Set up attribute pointers
     // position attribute
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
-    // color attribute
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3* sizeof(float)));
+    // texture coord attribute
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
-    // texture attribute 
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(2);
 
     //Load texture
     unsigned int texture1;
@@ -138,14 +134,9 @@ int main()
     unsigned int texture2;
     loadTextureJPG("media/img/brick.jpg", &texture2, GL_REPEAT, GL_REPEAT, GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR);
 
-    // tell opengl for each sampler to which texture unit it belongs to (only has to be done once)
-    // -------------------------------------------------------------------------------------------
-    ourShader.use(); // don't forget to activate/use the shader before setting uniforms!
-    // either set it manually like so:
-    glUniform1i(glGetUniformLocation(ourShader.ID, "texture1"), 0);
-    // or set it via the texture class
+    ourShader.use();
+    ourShader.setInt("texture1", 0);
     ourShader.setInt("texture2", 1);
-
 
     while(!glfwWindowShouldClose(window))
     {
@@ -156,17 +147,26 @@ int main()
         glClear(GL_COLOR_BUFFER_BIT);
 
         // Draw triangle
-        float timeValue = glfwGetTime();
+        //float timeValue = glfwGetTime();
         //float greenValue = (sin(timeValue) / 2.0f) + 0.5f;
         //int vertexColorLocation = glGetUniformLocation(shaderProgram, "ourColor");
-        
-        //glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
 
-        ourShader.use();
+        
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture1);
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, texture2);
+        
+        // create transformations
+        glm::mat4 transform = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
+        transform = glm::translate(transform, glm::vec3(0.5f, -0.5f, 0.0f));
+        transform = glm::rotate(transform, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
+
+        // get matrix's uniform location and set matrix
+        ourShader.use();
+        unsigned int transformLoc = glGetUniformLocation(ourShader.ID, "transform");
+        glUniformMatrix4fv(transformLoc, 1, GL_FALSE, glm::value_ptr(transform));
+
         glBindVertexArray(VAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
